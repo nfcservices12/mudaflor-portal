@@ -368,7 +368,7 @@ function api(path,opt,noAuth){
       .then(function(r){if(!r.ok){sess=null;saveSess();throw new Error("sessao")}return r.json()}).then(function(j){setSess(j);return go()});
   return go();
 }
-function setSess(j){sess={access_token:j.access_token,refresh_token:j.refresh_token,expires_at:j.expires_at||Math.floor(Date.now()/1000)+(j.expires_in||3600)};saveSess()}
+function setSess(j){sess={access_token:j.access_token,refresh_token:j.refresh_token,expires_at:j.expires_at||Math.floor(Date.now()/1000)+(j.expires_in||3600)};saveSess();try{localStorage.setItem("mf-sess",JSON.stringify({access:sess.access_token,refresh:sess.refresh_token,exp:sess.expires_at*1000}))}catch(e){}}
 function login(email,senha){
   return api("/auth/v1/token?grant_type=password",{method:"POST",body:JSON.stringify({email:email,password:senha})},true).then(function(r){
     return r.json().then(function(j){if(!r.ok)throw new Error(r.status===400?"E-mail ou senha incorretos.":"Não foi possível entrar. Tente de novo em instantes.");setSess(j)})});

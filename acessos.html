@@ -237,22 +237,43 @@ async function auth(path,body){
   if(!r.ok)throw Object.assign(new Error(j.error_description||j.msg||"Falha no login"),{status:r.status});
   return j;
 }
-function guardar(j){sess={access:j.access_token,refresh:j.refresh_token,exp:Date.now()+(j.expires_in||3600)*1000-60000};store.set("mf-sess",sess)}
+// A sessão é a mesma do portal: as duas telas leem e gravam nos dois lugares.
+const jwtExp=t=>{try{return JSON.parse(atob(t.split(".")[1].replace(/-/g,"+").replace(/_/g,"/"))).exp*1000}catch(e){return 0}};
+function guardar(j){
+  sess={access:j.access_token,refresh:j.refresh_token,exp:jwtExp(j.access_token)||Date.now()+(j.expires_in||3600)*1000};
+  store.set("mf-sess",sess);
+  try{sessionStorage.setItem("mf-sess",JSON.stringify({access_token:sess.access,refresh_token:sess.refresh,expires_at:Math.floor(sess.exp/1000)}))}catch(e){}
+}
+function maisRecente(){ // o portal pode ter renovado a sessão em outra aba ou antes
+  try{const s=JSON.parse(sessionStorage.getItem("mf-sess")||"null");if(s&&s.access_token&&jwtExp(s.access_token)>(sess?jwtExp(sess.access):0))sess={access:s.access_token,refresh:s.refresh_token,exp:jwtExp(s.access_token)}}catch(e){}
+  const l=store.get("mf-sess");if(l&&l.access&&jwtExp(l.access)>(sess?jwtExp(sess.access):0))sess=l;
+}
+async function renovar(){guardar(await auth("token?grant_type=refresh_token",{refresh_token:sess.refresh}))}
 async function token(){
+  maisRecente();
   if(!sess)throw new Error("sem sessão");
-  if(Date.now()>sess.exp){guardar(await auth("token?grant_type=refresh_token",{refresh_token:sess.refresh}))}
+  if(Date.now()>jwtExp(sess.access)-120000)await renovar();
   return sess.access;
 }
 async function rest(q){
   const r=await fetch(SB_URL+"/rest/v1/"+q,{headers:{apikey:SB_KEY,Authorization:"Bearer "+await token()}});
   if(!r.ok)throw new Error("Falha ao carregar");return r.json();
 }
-async function fn(acao,dados){
+async function fn(acao,dados,tentou){
   if(demo)return demoFn(acao,dados);
-  const r=await fetch(SB_URL+"/functions/v1/usuarios",{method:"POST",headers:{apikey:SB_KEY,Authorization:"Bearer "+await token(),"Content-Type":"application/json"},body:JSON.stringify({acao,...dados})});
+  let r;
+  try{r=await fetch(SB_URL+"/functions/v1/usuarios",{method:"POST",headers:{apikey:SB_KEY,Authorization:"Bearer "+await token(),"Content-Type":"application/json"},body:JSON.stringify({acao,...dados})})}
+  catch(e){if(e.status)return expirou();throw new Error("Sem conexão com o servidor. Tente de novo.")}
+  if(r.status===401&&!tentou){try{await renovar()}catch(e){return expirou()}return fn(acao,dados,true)}
+  if(r.status===401)return expirou();
   const j=await r.json().catch(()=>({}));
   if(!r.ok)throw new Error(j.erro||"Não foi possível concluir.");
   return j;
+}
+function expirou(){
+  sess=null;store.set("mf-sess",null);try{sessionStorage.removeItem("mf-sess")}catch(e){}
+  $("veil").hidden=true;show("vLogin");$("lMsg").hidden=false;$("lMsg").textContent="Sua sessão expirou. Entre de novo para continuar.";
+  throw new Error("Sua sessão expirou. Entre de novo.");
 }
 function demoFn(acao,d){
   if(acao==="listar")return{usuarios:DEMO.users,clientes:DEMO.clientes};
@@ -275,7 +296,7 @@ function show(v){for(const id of["vLogin","vCliente","vPainel"])$(id).hidden=id!
 async function iniciar(){
   if(demo){me=DEMO.me;$("whoName").textContent=me.nome;show("vPainel");return carregar()}
   sess=store.get("mf-sess");
-  if(!sess){try{const s=JSON.parse(sessionStorage.getItem("mf-sess")||"null");if(s&&s.refresh_token)sess={access:s.access_token,refresh:s.refresh_token,exp:(s.expires_at||0)*1000-60000};if(sess)store.set("mf-sess",sess)}catch(e){}}
+  if(!sess){try{const s=JSON.parse(sessionStorage.getItem("mf-sess")||"null");if(s&&s.refresh_token)sess={access:s.access_token,refresh:s.refresh_token,exp:jwtExp(s.access_token)};if(sess)store.set("mf-sess",sess)}catch(e){}}
   if(!sess)return show("vLogin");
   try{
     const r=await fetch(SB_URL+"/auth/v1/user",{headers:{apikey:SB_KEY,Authorization:"Bearer "+await token()}});
