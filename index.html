@@ -45,6 +45,7 @@
   --zero:#9aa893;
 }
 *{box-sizing:border-box}
+[hidden]{display:none!important}
 html,body{margin:0}
 body{background:var(--bg);color:var(--text);font-family:var(--font-body);font-size:15px;line-height:1.45;-webkit-font-smoothing:antialiased}
 button,input,select{font:inherit;color:inherit}
@@ -175,6 +176,7 @@ main[hidden]{display:none}
       <button type="button" id="skin-portal" aria-pressed="true">Portal</button>
       <button type="button" id="skin-papel" aria-pressed="false">Relatório</button>
     </div>
+    <a class="btn" id="acessos" href="acessos.html" hidden style="text-decoration:none;color:inherit">Acessos</a>
     <button class="btn" type="button" id="sair" hidden>Sair</button>
   </div>
 </header>
@@ -471,7 +473,7 @@ function note(){
 }
 function equipe(){return !CFG.url||(eu&&eu.papel==="equipe")}
 function papeis(){
-  var e=equipe();
+  var e=equipe();$("acessos").hidden=!(CFG.url&&sess&&eu&&eu.papel==="equipe");
   document.querySelector('label[for="arquivo"]').hidden=!e;document.querySelector(".bar nav").hidden=!e;if(!e&&st.view!=="por-cliente"){st.view="por-cliente"}$("f-cliente").hidden=!e&&DS.clientes.length<2;
 }
 function filtros(){
@@ -536,7 +538,7 @@ function salvar(){
   var b=$("salvar");b.disabled=true;say("Salvando…");
   saveRows(DS.rows).then(function(j){pendente=false;say("Programação salva: "+fmt(j.linhas||DS.rows.length)+" linhas.",6000);return carregarBanco()},function(e){b.disabled=false;say(e.message)});
 }
-function sair(){sess=null;eu=null;semAcesso=false;saveSess();pendente=false;show(build([],"banco"));telas()}
+function sair(){sess=null;eu=null;semAcesso=false;saveSess();try{localStorage.removeItem("mf-sess")}catch(e){}pendente=false;show(build([],"banco"));telas()}
 function telas(){
   var precisaLogin=!!CFG.url&&!sess;
   $("login").hidden=!precisaLogin;$("app").hidden=precisaLogin;$("sair").hidden=!CFG.url||!sess;$("recarregar").hidden=!CFG.url;
@@ -579,6 +581,7 @@ window.addEventListener("hashchange",route);
 st.view=location.hash==="#por-variedade"?"por-variedade":"por-cliente";
 if(CFG.url){
   try{sess=JSON.parse(sessionStorage.getItem("mf-sess")||"null")}catch(e){sess=null}
+  if(!sess){try{var L=JSON.parse(localStorage.getItem("mf-sess")||"null");if(L&&L.refresh){sess={access_token:L.access,refresh_token:L.refresh,expires_at:Math.floor((L.exp+60000)/1000)};saveSess()}}catch(e){}}
   telas();show(build([],"banco"));if(sess)carregarBanco();
 }else{telas();show(build(demoRows(),"exemplo"))}
 })();

@@ -148,7 +148,7 @@ h1{font-size:clamp(30px,5vw,42px);line-height:1.05;letter-spacing:-.02em;margin:
       <h1>Acessos ao portal</h1>
       <p class="lead">Cada cliente entra com o próprio e-mail e só enxerga a programação do código dele.</p>
     </div>
-    <button class="btn main" id="novo" type="button">+ Novo acesso</button>
+    <div class="row" style="flex-wrap:wrap"><a class="btn" href="./">Ver programação</a><button class="btn main" id="novo" type="button">+ Novo acesso</button></div>
   </div>
   <div class="stats" id="stats"></div>
   <div class="tools">
@@ -275,6 +275,7 @@ function show(v){for(const id of["vLogin","vCliente","vPainel"])$(id).hidden=id!
 async function iniciar(){
   if(demo){me=DEMO.me;$("whoName").textContent=me.nome;show("vPainel");return carregar()}
   sess=store.get("mf-sess");
+  if(!sess){try{const s=JSON.parse(sessionStorage.getItem("mf-sess")||"null");if(s&&s.refresh_token)sess={access:s.access_token,refresh:s.refresh_token,exp:(s.expires_at||0)*1000-60000};if(sess)store.set("mf-sess",sess)}catch(e){}}
   if(!sess)return show("vLogin");
   try{
     const r=await fetch(SB_URL+"/auth/v1/user",{headers:{apikey:SB_KEY,Authorization:"Bearer "+await token()}});
@@ -284,7 +285,7 @@ async function iniciar(){
     me=m[0]||{nome:u.email,papel:null};
     $("whoName").textContent=me.nome||u.email;
     if(me.papel==="equipe"){show("vPainel");carregar()}else show("vCliente");
-  }catch(e){sess=null;store.set("mf-sess",null);show("vLogin")}
+  }catch(e){sess=null;store.set("mf-sess",null);try{sessionStorage.removeItem("mf-sess")}catch(x){}show("vLogin")}
 }
 
 $("fLogin").addEventListener("submit",async e=>{
@@ -300,7 +301,7 @@ $("fLogin").addEventListener("submit",async e=>{
 $("lDemo").addEventListener("click",()=>{demo=true;location.hash="demo";iniciar()});
 $("sair").addEventListener("click",async()=>{
   if(!demo&&sess){try{await fetch(SB_URL+"/auth/v1/logout",{method:"POST",headers:{apikey:SB_KEY,Authorization:"Bearer "+sess.access}})}catch(e){}}
-  sess=null;store.set("mf-sess",null);demo=false;history.replaceState(null,"",location.pathname);show("vLogin");
+  sess=null;store.set("mf-sess",null);try{sessionStorage.removeItem("mf-sess")}catch(e){}demo=false;history.replaceState(null,"",location.pathname);show("vLogin");
 });
 
 // ---- Lista ----
