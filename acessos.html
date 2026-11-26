@@ -3,6 +3,9 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; connect-src https://zmgcznvmvdwtslqoxcrn.supabase.co; img-src data:; base-uri 'none'; form-action 'none'">
+<meta name="referrer" content="no-referrer">
 <title>MudaFlor · Acessos</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -98,6 +101,18 @@ h1{font-size:clamp(30px,5vw,42px);line-height:1.05;letter-spacing:-.02em;margin:
 .check input{width:20px;height:20px;accent-color:var(--warn)}
 .zone{border-top:1px solid var(--line);padding-top:16px;display:flex;flex-direction:column;gap:10px}
 .cred{background:var(--bg);border:1px solid var(--line);border-radius:12px;padding:14px;font-size:15px;white-space:pre-wrap;overflow-wrap:anywhere}
+.seg2{margin-top:28px}
+.seg2 h2{font-size:22px;margin:0 0 4px;letter-spacing:-.01em}
+.alerta{display:flex;gap:10px;align-items:center;border-radius:12px;padding:12px 14px;margin:12px 0;font-size:15px;background:var(--surface);border:1px solid var(--line)}
+.alerta.ok{border-left:4px solid var(--leaf)}
+.alerta.warn{border-left:4px solid var(--warn);color:var(--warn)}
+.ev{display:grid;grid-template-columns:auto minmax(0,1fr);gap:4px 12px;padding:10px 14px;border-bottom:1px solid var(--line);font-size:14px}
+.ev:last-child{border-bottom:0}
+.ev time{color:var(--muted);font-variant-numeric:tabular-nums;white-space:nowrap}
+.ev b{font-weight:600}
+.ev.bad b{color:var(--warn)}
+.ev small{grid-column:2;color:var(--muted);overflow-wrap:anywhere}
+.evs{background:var(--surface);border:1px solid var(--line);border-radius:14px}
 .demo{background:var(--petal);color:#1a0c13;text-align:center;font-size:13px;font-weight:600;padding:6px 12px}
 @media (max-width:600px){
   .ficha{grid-template-columns:auto minmax(0,1fr)}
@@ -161,6 +176,13 @@ h1{font-size:clamp(30px,5vw,42px);line-height:1.05;letter-spacing:-.02em;margin:
   </div>
   <div class="msg" id="pMsg" role="status" hidden></div>
   <div class="list" id="lista"></div>
+
+  <section class="seg2" aria-labelledby="segT">
+    <h2 id="segT">Segurança</h2>
+    <p class="lead">Entradas no portal, mudanças de acesso e tentativas bloqueadas ficam registradas aqui por 6 meses.</p>
+    <div class="alerta ok" id="alerta">Carregando…</div>
+    <div class="evs" id="eventos"></div>
+  </section>
 </main>
 
 <!-- Painel do formulário -->
@@ -183,7 +205,7 @@ h1{font-size:clamp(30px,5vw,42px);line-height:1.05;letter-spacing:-.02em;margin:
       <label class="field"><span>Nome</span><input class="in" id="fNome" autocomplete="off" placeholder="Nome do cliente ou da pessoa"></label>
       <label class="field"><span>E-mail de acesso</span><input class="in" id="fEmail" type="email" inputmode="email" autocomplete="off" placeholder="cliente@email.com"></label>
       <label class="field"><span id="fSenhaLbl">Senha</span>
-        <div class="row"><input class="in" id="fSenha" type="text" autocomplete="new-password" placeholder="Mínimo 8 caracteres"><button class="btn" type="button" id="gerar">Gerar</button></div>
+        <div class="row"><input class="in" id="fSenha" type="text" autocomplete="new-password" placeholder="Mínimo 10, com letras e números"><button class="btn" type="button" id="gerar">Gerar</button></div>
         <small id="fSenhaInfo">Toque em Gerar para criar uma senha segura.</small>
       </label>
       <div class="zone" id="fZona" hidden>
@@ -207,6 +229,7 @@ h1{font-size:clamp(30px,5vw,42px);line-height:1.05;letter-spacing:-.02em;margin:
 </div>
 
 <script>
+if(window.top!==window.self){try{window.top.location=window.self.location.href}catch(e){document.documentElement.style.display="none"}}
 {
 "use strict";
 // ---- Configuração do Supabase (chave pública: pode ficar no site) ----
@@ -277,9 +300,15 @@ function expirou(){
 }
 function demoFn(acao,d){
   if(acao==="listar")return{usuarios:DEMO.users,clientes:DEMO.clientes};
+  if(acao==="eventos")return{alertas_7d:2,eventos:[
+    {criado_em:new Date(Date.now()-36e5).toISOString(),evento:"entrada",nome:"Jorge Kamimura",ip:"189.40.12.7",detalhe:{}},
+    {criado_em:new Date(Date.now()-5*36e5).toISOString(),evento:"envio_recusado",nome:null,ip:"45.155.205.3",detalhe:{motivo:"chave errada"}},
+    {criado_em:new Date(Date.now()-5*36e5+6e4).toISOString(),evento:"ip_bloqueado",nome:null,ip:"45.155.205.3",detalhe:{motivo:"muitas tentativas"}},
+    {criado_em:new Date(Date.now()-864e5).toISOString(),evento:"programacao_enviada",nome:null,ip:null,detalhe:{origem:"erp",linhas:1840}},
+    {criado_em:new Date(Date.now()-2*864e5).toISOString(),evento:"acesso_criado",nome:"Equipe MudaFlor",ip:null,detalhe:{para:"Jorge Kamimura",papel:"cliente",codigo:"1.373"}}]};
   if(acao==="criar"){
     if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(d.email||""))throw new Error("E-mail inválido.");
-    if((d.senha||"").length<8)throw new Error("A senha precisa de pelo menos 8 caracteres.");
+    if((d.senha||"").length<10||!/[A-Za-z]/.test(d.senha)||!/\d/.test(d.senha))throw new Error("A senha precisa de pelo menos 10 caracteres, com letras e números. Toque em Gerar.");
     if(!d.nome)throw new Error("Informe o nome.");
     if(d.papel==="cliente"&&!d.cliente_codigo)throw new Error("Informe o código do cliente.");
     if(DEMO.users.some(u=>u.email===d.email.toLowerCase()))throw new Error("Já existe um acesso com esse e-mail.");
@@ -309,13 +338,21 @@ async function iniciar(){
   }catch(e){sess=null;store.set("mf-sess",null);try{sessionStorage.removeItem("mf-sess")}catch(x){}show("vLogin")}
 }
 
+// trava de tentativas: depois de 5 senhas erradas, espera 1 minuto (dobra a cada nova rodada)
+const trava=()=>store.get("mf-trava")||{n:0,ate:0,r:0};
 $("fLogin").addEventListener("submit",async e=>{
   e.preventDefault();
-  const m=$("lMsg"),b=$("lBtn");m.hidden=true;b.disabled=true;b.textContent="Entrando…";
-  try{guardar(await auth("token?grant_type=password",{email:$("lEmail").value.trim(),password:$("lSenha").value}));$("lSenha").value="";await iniciar()}
+  const m=$("lMsg"),b=$("lBtn"),t=trava();m.hidden=true;
+  if(t.ate>Date.now()){m.hidden=false;m.textContent="Muitas tentativas. Aguarde "+Math.ceil((t.ate-Date.now())/1000)+" segundos e tente de novo.";return}
+  b.disabled=true;b.textContent="Entrando…";
+  try{
+    guardar(await auth("token?grant_type=password",{email:$("lEmail").value.trim(),password:$("lSenha").value}));$("lSenha").value="";store.set("mf-trava",null);
+    fetch(SB_URL+"/rest/v1/rpc/registrar_entrada",{method:"POST",headers:{apikey:SB_KEY,Authorization:"Bearer "+sess.access,"Content-Type":"application/json"},body:"{}"}).catch(()=>{});
+    await iniciar()}
   catch(err){
     m.hidden=false;
-    if(err.status===400||err.status===401)m.textContent="E-mail ou senha incorretos.";
+    if(err.status===429)m.textContent="Muitas tentativas. Aguarde alguns minutos e tente de novo.";
+    else if(err.status===400||err.status===401){t.n++;if(t.n>=5){t.r++;t.ate=Date.now()+6e4*2**(t.r-1);t.n=0}store.set("mf-trava",t);m.textContent="E-mail ou senha incorretos."}
     else{m.textContent="Sem conexão com o servidor agora. Tente de novo em instantes.";$("lDemo").hidden=false}
   }finally{b.disabled=false;b.textContent="Entrar"}
 });
@@ -331,6 +368,30 @@ async function carregar(){
   $("lista").innerHTML='<div class="empty">Carregando acessos…</div>';
   try{const j=await fn("listar");users=j.usuarios;clientes=j.clientes||[];m.hidden=true;desenhar()}
   catch(e){m.hidden=false;m.className="msg err";m.textContent=e.message;$("lista").innerHTML=""}
+  seguranca();
+}
+// ---- Registro de segurança ----
+const EV={entrada:["Entrou no portal",0],acesso_criado:["Criou um acesso",0],acesso_alterado:["Alterou um acesso",0],acesso_removido:["Removeu um acesso",0],
+  programacao_enviada:["Programação atualizada",0],envio_recusado:["Tentativa de envio recusada",1],ip_bloqueado:["Endereço bloqueado por excesso de tentativas",1],gestao_negada:["Tentou gerenciar acessos sem permissão",1]};
+const dt=d=>{const x=new Date(d),p=n=>String(n).padStart(2,"0");return p(x.getDate())+"/"+p(x.getMonth()+1)+" "+p(x.getHours())+":"+p(x.getMinutes())};
+function detalheEv(e){const d=e.detalhe||{},p=[];
+  if(e.nome)p.push(e.nome);
+  if(d.para)p.push("→ "+d.para+(d.codigo?" ("+d.codigo+")":""));
+  if(d.mudancas&&d.mudancas.length)p.push(d.mudancas.join(", "));
+  if(d.motivo)p.push(d.motivo);
+  if(d.linhas)p.push(d.linhas+" linhas"+(d.origem==="erp"?" pelo sistema":d.origem==="planilha"?" por planilha":""));
+  if(e.ip)p.push("IP "+e.ip);
+  return p.join(" · ")}
+async function seguranca(){
+  const a=$("alerta"),l=$("eventos");
+  try{
+    const j=await fn("eventos");
+    a.className="alerta "+(j.alertas_7d?"warn":"ok");
+    a.textContent=j.alertas_7d?`⚠ ${j.alertas_7d} tentativa${j.alertas_7d>1?"s":""} suspeita${j.alertas_7d>1?"s":""} nos últimos 7 dias. Todas foram bloqueadas.`:"✓ Nenhuma tentativa suspeita nos últimos 7 dias.";
+    l.innerHTML=j.eventos.length?j.eventos.map(e=>{const k=EV[e.evento]||[e.evento,0];
+      return `<div class="ev${k[1]?" bad":""}"><time>${esc(dt(e.criado_em))}</time><b>${esc(k[0])}</b><small>${esc(detalheEv(e))}</small></div>`}).join("")
+      :'<div class="empty" style="border:0">Nada registrado ainda.</div>';
+  }catch(e){a.className="alerta warn";a.textContent="Não consegui carregar o registro de segurança.";l.innerHTML=""}
 }
 const quando=d=>{if(!d)return"ainda não entrou";const dias=Math.floor((Date.now()-new Date(d))/864e5);return dias<1?"entrou hoje":dias===1?"entrou ontem":"entrou há "+dias+" dias"};
 const ini=n=>(n||"?").split(/\s+/).filter(Boolean).slice(0,2).map(p=>p[0].toUpperCase()).join("");
@@ -386,8 +447,9 @@ $("feito").addEventListener("click",fechar);
 $("veil").addEventListener("click",e=>{if(e.target===$("veil"))fechar()});
 document.addEventListener("keydown",e=>{if(e.key==="Escape"&&!$("veil").hidden)fechar()});
 $("gerar").addEventListener("click",()=>{
-  const A="abcdefghjkmnpqrstuvwxyzABCDEFGHJKLMNPQRSTUVWXYZ23456789",r=new Uint32Array(10);crypto.getRandomValues(r);
-  $("fSenha").value=Array.from(r,x=>A[x%A.length]).join("");
+  const A="abcdefghjkmnpqrstuvwxyzABCDEFGHJKLMNPQRSTUVWXYZ23456789",r=new Uint32Array(12);let s;
+  do{crypto.getRandomValues(r);s=Array.from(r,x=>A[x%A.length]).join("")}while(!/\d/.test(s)||!/[a-z]/i.test(s));
+  $("fSenha").value=s;
 });
 $("fUser").addEventListener("submit",async e=>{
   e.preventDefault();
